@@ -213,7 +213,11 @@ class TranscriptionThread(threading.Thread):
             # Save to timestamped file
             with open(self.text_filename, "w", encoding="utf-8") as f:
                 f.write(result["text"])
-            response = self.ai.prompt(message=prompt.format(result["text"]))
+            transcribed_text = result["text"]
+            if len(transcribed_text) > 28000:
+                transcribed_text = transcribed_text[:28000] + "..."
+            req_prompt = prompt.format(transcribed_text)
+            response = self.ai.prompt(message=req_prompt)
             summary_filename = self.text_filename.replace(".txt", "_summary.txt")
             with open(summary_filename, "w", encoding="utf-8") as f:
                 f.write(response['message'])
