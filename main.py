@@ -72,7 +72,7 @@ class AudioRecorderApp:
         self.status_label.pack(pady=5)
         self.root.update()
         try:
-            self.model = whisper.load_model("base")
+            self.model = whisper.load_model("tiny")
         except Exception as e:
             self.status_label.config(text=f"Error loading model: {e}")
             return
@@ -118,6 +118,9 @@ class AudioRecorderApp:
         timestamp = datetime.now().strftime("%d-%m-%y %H_%M_%S")
         documents_folder = os.path.join(os.path.expanduser("~"), "vartalap")
         text_filename = os.path.join(documents_folder, f"{timestamp}.txt")
+
+        audio_filename = os.path.join(documents_folder, f"audio_{timestamp}.wav")
+        self.recording_thread.save(audio_filename)
 
         # Create Documents folder if it doesn't exist
         os.makedirs(documents_folder, exist_ok=True)
