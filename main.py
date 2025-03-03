@@ -74,9 +74,11 @@ class AudioRecorderApp:
         self.status_label.pack(pady=5)
 
         # API Selection
+        ai_options = ["MetaAI"]
         default_ai = "MetaAI"  # Default API choice
-        if len(os.getenv('OPENAI_API_KEY')) != 0:
+        if len(os.getenv('OPENAI_API_KEY')) == 0:
             default_ai = "OpenAI"
+            ai_options = ["OpenAI", "MetaAI"]
         self.api_choice = tk.StringVar(value=default_ai)  # Default API choice
         api_frame = ttk.Frame(root)
         api_frame.pack(pady=5)
@@ -84,7 +86,7 @@ class AudioRecorderApp:
         api_label = ttk.Label(api_frame, text="Select AI API:")
         api_label.pack(side=tk.LEFT, padx=5)
 
-        api_dropdown = ttk.Combobox(api_frame, textvariable=self.api_choice, values=["MetaAI", "OpenAI"], state="readonly", width=10)
+        api_dropdown = ttk.Combobox(api_frame, textvariable=self.api_choice, values=ai_options, state="readonly", width=10)
         api_dropdown.pack(side=tk.LEFT, padx=5)
         api_dropdown.bind("<<ComboboxSelected>>", lambda e: self.update_ai_client())
 
