@@ -29,6 +29,9 @@ This project is an audio recording and transcription application built with Pyth
     ```sh
     pip install -r requirements.txt
     ```
+3. (Optional) If you want to use OpenAI for summarization, set the `OPENAI_API_KEY` environment variable:
+    ```sh
+    export OPENAI_API_KEY=your_openai_api_key
 
 ## Usage
 
