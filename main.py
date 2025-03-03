@@ -9,6 +9,7 @@ import queue
 from datetime import datetime
 import os
 from meta_ai_api import MetaAI
+from openai import OpenAI
 
 prompt = '''
 You are an AI Meeting Summarizer. Analyze the following meeting transcription and generate a comprehensive summary.
@@ -65,31 +66,63 @@ class AudioRecorderApp:
         self.audio_queue = queue.Queue()
         self.recording_thread = None
         self.transcription_thread = None
-        self.ai = MetaAI()
+        self.token_limit = 40000
 
-        # Initialize Whisper model
-        self.status_label = ttk.Label(root, text="Status: Loading model...")
+        # Create GUI Elements
+        # First create status label before using it
+        self.status_label = ttk.Label(root, text="Status: Initializing...")
         self.status_label.pack(pady=5)
-        self.root.update()
-        try:
-            self.model = whisper.load_model("tiny")
-        except Exception as e:
-            self.status_label.config(text=f"Error loading model: {e}")
-            return
-        self.status_label.config(text="Status: Stopped")
 
-        # GUI Elements
+        # API Selection
+        self.api_choice = tk.StringVar(value="OpenAI")  # Default API choice
+        api_frame = ttk.Frame(root)
+        api_frame.pack(pady=5)
+
+        api_label = ttk.Label(api_frame, text="Select AI API:")
+        api_label.pack(side=tk.LEFT, padx=5)
+
+        api_dropdown = ttk.Combobox(api_frame, textvariable=self.api_choice, values=["MetaAI", "OpenAI"], state="readonly", width=10)
+        api_dropdown.pack(side=tk.LEFT, padx=5)
+        api_dropdown.bind("<<ComboboxSelected>>", lambda e: self.update_ai_client())
+
+        # initialize AI client after status_label is created
+        self.ai = None
+        self.update_ai_client()
+
+        # Record button
         self.record_button = ttk.Button(root, text="Start Recording", command=self.toggle_recording)
         self.record_button.pack(pady=10)
 
+        # Text area
         self.text_area = tk.Text(root, wrap=tk.WORD, width=80, height=20)
         self.text_area.pack(pady=10, padx=10)
+
         # Configure text area tags for Markdown formatting
         self.text_area.tag_configure("bold", font=("Arial", 10, "bold"))
         self.text_area.tag_configure("italic", font=("Arial", 10, "italic"))
         self.text_area.tag_configure("heading1", font=("Arial", 16, "bold"))
         self.text_area.tag_configure("heading2", font=("Arial", 14, "bold"))
         self.text_area.tag_configure("code", font=("Courier", 10), background="#f0f0f0")
+
+        # Initialize Whisper model
+        self.status_label.config(text="Status: Loading model...")
+        self.root.update()
+        try:
+            self.model = whisper.load_model("tiny")
+            self.status_label.config(text=f"Status: Ready (Using {self.api_choice.get()})")
+        except Exception as e:
+            self.status_label.config(text=f"Error loading model: {e}")
+
+    def update_ai_client(self):
+        """Update the AI client based on user selection"""
+        selection = self.api_choice.get()
+        if selection == "MetaAI":
+            self.ai = MetaAI()
+        else:  # OpenAI
+            self.ai = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        # Update status label if it exists
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text=f"Status: Using {selection}")
 
     def toggle_recording(self):
         if not self.recording:
@@ -100,42 +133,38 @@ class AudioRecorderApp:
     def start_recording(self):
         self.recording = True
         self.record_button.config(text="Stop Recording")
-        self.status_label.config(text="Status: Recording...")
+        self.status_label.config(text=f"Status: Recording... (Using {self.api_choice.get()})")
         self.recording_thread = RecordingThread(self.audio_queue)
         self.recording_thread.start()
 
     def stop_recording(self):
         self.recording = False
         self.record_button.config(text="Start Recording")
-        self.status_label.config(text="Status: Stopping...")
+        self.status_label.config(text=f"Status: Stopping... (Using {self.api_choice.get()})")
         self.recording_thread.stop()
         self.recording_thread.join()
 
-        audio_filename = "recording.wav"
-        self.recording_thread.save(audio_filename)
-
-       # Generate timestamped filename and save in Documents folder
+        # Generate timestamped filename and save in Documents folder
         timestamp = datetime.now().strftime("%d-%m-%y %H_%M_%S")
         documents_folder = os.path.join(os.path.expanduser("~"), "vartalap")
         text_filename = os.path.join(documents_folder, f"{timestamp}.txt")
-
         audio_filename = os.path.join(documents_folder, f"audio_{timestamp}.wav")
-        self.recording_thread.save(audio_filename)
 
         # Create Documents folder if it doesn't exist
         os.makedirs(documents_folder, exist_ok=True)
 
+        self.recording_thread.save(audio_filename)
 
-        self.status_label.config(text="Status: Transcribing...")
+        self.status_label.config(text=f"Status: Transcribing with {self.api_choice.get()}...")
         self.transcription_thread = TranscriptionThread(
-            audio_filename, text_filename, self.model, self.root, self.update_transcription, self.ai
+            audio_filename, text_filename, self.model, self.root, self.update_transcription, self.ai, self.api_choice.get(), self.token_limit
         )
         self.transcription_thread.start()
 
     def update_transcription(self, text):
         self.text_area.delete(1.0, tk.END)
         self.apply_markdown_formatting(text)
-        self.status_label.config(text="Status: Stopped")
+        self.status_label.config(text=f"Status: Stopped (Using {self.api_choice.get()})")
 
     def apply_markdown_formatting(self, text):
         # Split text into lines and apply formatting
@@ -198,7 +227,7 @@ class RecordingThread(threading.Thread):
             sf.write(filename, audio_data, self.fs)
 
 class TranscriptionThread(threading.Thread):
-    def __init__(self, audio_filename, text_filename, model, root, callback, ai):
+    def __init__(self, audio_filename, text_filename, model, root, callback, ai, api_type, token_limit=28000):
         super().__init__()
         self.audio_filename = audio_filename
         self.text_filename = text_filename
@@ -206,6 +235,8 @@ class TranscriptionThread(threading.Thread):
         self.root = root
         self.callback = callback
         self.ai = ai
+        self.api_type = api_type
+        self.token_limit = token_limit
 
     def run(self):
         try:
@@ -214,16 +245,29 @@ class TranscriptionThread(threading.Thread):
             with open(self.text_filename, "w", encoding="utf-8") as f:
                 f.write(result["text"])
             transcribed_text = result["text"]
-            if len(transcribed_text) > 28000:
-                transcribed_text = transcribed_text[:28000] + "..."
+            if len(transcribed_text) > self.token_limit:
+                transcribed_text = transcribed_text[:self.token_limit] + "..."
+
             req_prompt = prompt.format(transcribed_text)
-            response = self.ai.prompt(message=req_prompt)
-            summary_filename = self.text_filename.replace(".txt", "_summary.txt")
+
+            # Choose API based on selection
+            if self.api_type == "MetaAI":
+                response = self.ai.prompt(message=req_prompt)
+                ai_response = response['message']
+            else:  # OpenAI
+                response = self.ai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": req_prompt}],
+                )
+                ai_response = response.choices[0].message.content
+
+            summary_filename = self.text_filename.replace(".txt", f"_summary_{self.api_type}.txt")
             with open(summary_filename, "w", encoding="utf-8") as f:
-                f.write(response['message'])
-            self.root.after(0, self.callback, response['message'])
+                f.write(ai_response)
+
+            self.root.after(0, self.callback, ai_response)
         except Exception as e:
-            error_msg = f"Transcription error: {e}"
+            error_msg = f"Transcription/API error: {e}"
             self.root.after(0, self.callback, error_msg)
 
 if __name__ == "__main__":

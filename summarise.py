@@ -1,4 +1,6 @@
 from meta_ai_api import MetaAI
+from openai import OpenAI
+import os
 
 prompt = '''
 You are an AI Meeting Summarizer. Analyze the following meeting transcription and generate a comprehensive summary.
@@ -47,7 +49,7 @@ output should strictly follow specified Output Format
 [Question and answer list here]
 '''
 
-def summarise(transcription):
+def summarise(transcription, mode="meta_ai"):
     """
     Summarise a meeting transcription using MetaAI.
 
@@ -57,15 +59,24 @@ def summarise(transcription):
     Returns:
         str: Meeting summary
     """
-    # Create a MetaAI instance
-    meta_ai = MetaAI()
+    if len(transcription) > 28000:
+        transcription = transcription[:28000] + "..."
 
     req_prompt = prompt.format(transcription)
-
     print(req_prompt)
 
-    # Generate a summary
-    summary = meta_ai.prompt(message=req_prompt)
+    # Create a MetaAI instance
+    if mode == "meta_ai":
+        meta_ai = MetaAI()
+        summary = meta_ai.prompt(message=req_prompt)
+
+    if mode == "openai":
+        openai = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": req_prompt}]
+        )
+        summary = response.choices[0].message.content
 
     return summary
 
@@ -75,7 +86,7 @@ if __name__ == "__main__":
         transcription = f.read()
 
     # Summarise the transcription
-    summary = summarise(transcription)
+    summary = summarise(transcription, mode="openai")
 
     # Print the summary
     print(summary)
