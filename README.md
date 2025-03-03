@@ -39,10 +39,13 @@ This project is an audio recording and transcription application built with Pyth
     ```sh
     python main.py
     ```
+2. Select the AI API you want to use (MetaAI or OpenAI-recommended) from the dropdown menu.
 
-2. Use the GUI to start and stop recording.
+3. Use the GUI to start and stop recording.
 
-3. The transcriptions will be saved in the `vartalap` folder in your home directory.
+## Note on API Usage
+
+MetaAI has limitations on the number of characters in the prompt, which may cause it to fail when summarizing large meetings. To avoid this issue, it is recommended to set the `OPENAI_API_KEY` and use OpenAI for summarization.
 
 ## Project Structure
 
