@@ -76,7 +76,7 @@ class AudioRecorderApp:
         # API Selection
         ai_options = ["MetaAI"]
         default_ai = "MetaAI"  # Default API choice
-        if len(os.getenv('OPENAI_API_KEY')) == 0:
+        if len(os.getenv('OPENAI_API_KEY')) != 0:
             default_ai = "OpenAI"
             ai_options = ["OpenAI", "MetaAI"]
         self.api_choice = tk.StringVar(value=default_ai)  # Default API choice
