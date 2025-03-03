@@ -74,7 +74,10 @@ class AudioRecorderApp:
         self.status_label.pack(pady=5)
 
         # API Selection
-        self.api_choice = tk.StringVar(value="OpenAI")  # Default API choice
+        default_ai = "MetaAI"  # Default API choice
+        if len(os.getenv('OPENAI_API_KEY')) != 0:
+            default_ai = "OpenAI"
+        self.api_choice = tk.StringVar(value=default_ai)  # Default API choice
         api_frame = ttk.Frame(root)
         api_frame.pack(pady=5)
 
