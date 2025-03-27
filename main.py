@@ -61,7 +61,7 @@ output should strictly follow specified Output Format
 class AudioRecorderApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Audio Recorder")
+        self.root.title("Vartalap - AI Meeting Summarizer")
         self.recording = False
         self.audio_queue = queue.Queue()
         self.recording_thread = None
